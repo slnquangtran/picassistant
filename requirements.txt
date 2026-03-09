@@ -1,0 +1,11 @@
+transformers
+torch
+torchvision
+Pillow
+requests
+fastapi
+uvicorn
+python-multipart
+diffusers
+accelerate
+gradio
