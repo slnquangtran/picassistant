@@ -29,6 +29,7 @@ class SegmentationAgent:
             outputs = self.segmenter(image, input_boxes=[sam_boxes])
             # For a single image, outputs is a dict: {"masks": ..., "scores": ...}
             masks = outputs["masks"] 
+            print(f"SAM Output Masks Type: {type(masks)}")
             
             # If it's a list (typical for some transformers versions), it contains masks
             filtered_results = []
@@ -41,6 +42,10 @@ class SegmentationAgent:
                          mask_to_use = mask_entry[0]
                     else:
                          mask_to_use = mask_entry
+                    
+                    # Handle if mask_to_use is a dict (some versions return [{'segmentation': ..., ...}, ...])
+                    if isinstance(mask_to_use, dict) and "segmentation" in mask_to_use:
+                         mask_to_use = mask_to_use["segmentation"]
                     
                     if isinstance(mask_to_use, torch.Tensor):
                         mask_to_use = mask_to_use.cpu().numpy()
@@ -57,6 +62,7 @@ class SegmentationAgent:
                 if isinstance(masks, torch.Tensor):
                     masks = masks.cpu().numpy()
                 
+                print(f"Masks Array/Tensor Shape: {masks.shape}")
                 # If [num_boxes, 3, H, W]
                 if len(masks.shape) == 4:
                      masks = masks[:, 0, :, :]
@@ -64,13 +70,34 @@ class SegmentationAgent:
                      masks = masks[0, :, 0, :, :]
                 
                 for mask_data in masks:
-                    byte_mask = (mask_data * 255).astype('uint8') if mask_data.dtype == bool else mask_data
-                    filtered_results.append(Image.fromarray(byte_mask))
+                    # Extract from dict if needed (though usually array in this branch)
+                    if isinstance(mask_data, dict) and "segmentation" in mask_data:
+                         mask_data = mask_data["segmentation"]
+                    
+                    if isinstance(mask_data, np.ndarray) or isinstance(mask_data, torch.Tensor):
+                         m_arr = mask_data.cpu().numpy() if isinstance(mask_data, torch.Tensor) else mask_data
+                         byte_mask = (m_arr * 255).astype('uint8') if m_arr.dtype == bool else m_arr
+                         filtered_results.append(Image.fromarray(byte_mask))
+                    else:
+                         filtered_results.append(mask_data)
         else:
             # Fallback for no bboxes
             outputs = self.segmenter(image)
-            masks = outputs[0]["masks"] if isinstance(outputs, list) else outputs["masks"]
-            filtered_results = [m if isinstance(m, Image.Image) else Image.fromarray((m*255).astype('uint8')) for m in (masks[0] if isinstance(masks[0], list) else masks)]
+            masks = outputs[0]["masks"] if isinstance(outputs, list) else (outputs["masks"] if "masks" in outputs else outputs)
+            # Flatten if needed and convert to PIL
+            if isinstance(masks, list) and len(masks) > 0 and isinstance(masks[0], list):
+                masks = [item for sublist in masks for item in sublist]
+            
+            filtered_results = []
+            for m in masks:
+                if isinstance(m, dict) and "segmentation" in m:
+                    m = m["segmentation"]
+                
+                if isinstance(m, Image.Image):
+                    filtered_results.append(m)
+                else:
+                    arr = m.cpu().numpy() if isinstance(m, torch.Tensor) else m
+                    filtered_results.append(Image.fromarray((arr*255).astype('uint8') if arr.dtype == bool else arr))
 
         # Convert masks to base64
         base64_masks = [pil_to_base64(mask) for mask in filtered_results]
