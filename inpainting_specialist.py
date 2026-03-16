@@ -30,7 +30,8 @@ class InpaintingSpecialist:
         mask = load_image(mask_input).convert("L")
 
         # 2. Run inference
-        result = self.pipe(prompt=prompt, image=image, mask_image=mask).images[0]
+        steps = 20 if self.device == "cpu" else 50
+        result = self.pipe(prompt=prompt, image=image, mask_image=mask, num_inference_steps=steps).images[0]
 
         # 3. Convert to base64
         inpainted_base64 = pil_to_base64(result)

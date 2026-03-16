@@ -21,16 +21,33 @@ segmentation_agent = None
 depth_agent = None
 inpaint_agent = None
 
-def get_agents():
+def get_agents(progress=None):
     global captioning_agent, segmentation_agent, depth_agent, inpaint_agent
+    
+    total_steps = 4
+    current_step = 0
+    
     if captioning_agent is None:
+        if progress: progress(current_step/total_steps, desc="Loading Image Captioning Agent...")
         captioning_agent = ImageCaptioningAgent()
+    current_step += 1
+    
     if segmentation_agent is None:
+        if progress: progress(current_step/total_steps, desc="Loading Segmentation Agent...")
         segmentation_agent = SegmentationAgent()
+    current_step += 1
+        
     if depth_agent is None:
+        if progress: progress(current_step/total_steps, desc="Loading Depth Estimation Agent...")
         depth_agent = DepthEstimationAgent()
+    current_step += 1
+        
     if inpaint_agent is None:
+        if progress: progress(current_step/total_steps, desc="Loading Inpainting Specialist (HEAVY)...")
         inpaint_agent = InpaintingSpecialist()
+    current_step += 1
+    
+    if progress: progress(1.0, desc="All agents ready!")
     return captioning_agent, segmentation_agent, depth_agent, inpaint_agent
 
 def clear_cache():
@@ -126,12 +143,15 @@ h1 {
 }
 """
 
-def process_image(image):
+def process_image(image, progress=gr.Progress(track_tqdm=True)):
     if image is None:
         return None, None, "", gr.update(choices=[]), None, None
     
     # Ensure agents are loaded
-    caption_agent, seg_agent, d_agent, _ = get_agents()
+    progress(0, desc="Initializing AI ecosystem...")
+    caption_agent, seg_agent, d_agent, _ = get_agents(progress=progress)
+    
+    progress(0.8, desc="Processing Image Content...")
     
     # Convert PIL to base64 for agents (some might expect base64/data URI)
     image_base64 = pil_to_base64(image)
@@ -172,17 +192,20 @@ def process_image(image):
         depth_map_base64 = json.loads(depth_json).get("depth_map", "")
         depth_map = load_image(depth_map_base64)
         
-        return annotated_image, depth_map, caption, gr.update(choices=labels, value=labels[0] if labels else None), image, masks
+        return annotated_image, depth_map, caption, gr.update(choices=labels, value=labels[0] if labels else None), image, masks, labels
 
     except Exception as e:
         raise gr.Error(f"Error processing image: {str(e)}")
 
-def inpaint_selected(original_image, masks, labels, selected_label, prompt):
+def inpaint_selected(original_image, masks, labels, selected_label, prompt, progress=gr.Progress(track_tqdm=True)):
     if not original_image or not masks or not selected_label or not prompt:
         return None
     
     # Ensure agents are loaded
-    _, _, _, inpaint_sp = get_agents()
+    progress(0, desc="Warming up Inpainting specialist...")
+    _, _, _, inpaint_sp = get_agents(progress=progress)
+    
+    progress(0.5, desc="Performing Stable Diffusion Inpainting...")
     
     try:
         # Find index of selected label
@@ -243,11 +266,7 @@ with gr.Blocks() as demo:
     process_btn.click(
         process_image,
         inputs=[img_input],
-        outputs=[annotated_output, depth_output, caption_output, object_dropdown, original_image_state, masks_state]
-    ).then(
-        lambda x: x.choices if hasattr(x, 'choices') else [],
-        inputs=[object_dropdown],
-        outputs=[labels_state]
+        outputs=[annotated_output, depth_output, caption_output, object_dropdown, original_image_state, masks_state, labels_state]
     )
 
     inpaint_btn.click(

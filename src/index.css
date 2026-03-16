@@ -113,7 +113,14 @@ p.subtitle {
   justify-content: center;
 }
 
-.image-viewer img {
+.image-wrapper {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+}
+
+.image-wrapper img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -126,6 +133,45 @@ p.subtitle {
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.bounding-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(0, 242, 254, 0.1);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+}
+
+.bounding-box:hover, .bounding-box.selected {
+  background: rgba(157, 80, 187, 0.3);
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(157, 80, 187, 0.5);
+  z-index: 10;
+}
+
+.bounding-box-label {
+  position: absolute;
+  top: -24px;
+  left: -2px;
+  background: var(--accent);
+  color: #000;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.bounding-box:hover .bounding-box-label, .bounding-box.selected .bounding-box-label {
+  opacity: 1;
+  background: var(--primary);
+  color: white;
 }
 
 .controls-panel {

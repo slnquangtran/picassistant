@@ -14,6 +14,7 @@ function App() {
   const [inpainting, setInpainting] = useState(false);
   const [inpaintedImage, setInpaintedImage] = useState(null);
   const [showStage, setShowStage] = useState('original'); // 'original', 'depth', 'mask'
+  const [imgNaturalSize, setImgNaturalSize] = useState({ width: 1, height: 1 });
 
   const fileInputRef = useRef(null);
 
@@ -118,13 +119,53 @@ function App() {
                   <p>Inpainting with Stable Diffusion...</p>
                 </div>
               )}
-              <img src={renderActiveImage()} alt="Preview" />
-              
-              {showStage === 'original' && results?.detections && !inpaintedImage && (
-                <div className="canvas-overlay">
-                  {/* Bounding boxes could be rendered here if needed, but we rely on the list for selection */}
-                </div>
-              )}
+              <div className="image-wrapper">
+                <img 
+                  src={renderActiveImage()} 
+                  alt="Preview" 
+                  onLoad={(e) => {
+                    if (showStage === 'original') {
+                      setImgNaturalSize({
+                        width: e.target.naturalWidth,
+                        height: e.target.naturalHeight
+                      });
+                    }
+                  }}
+                />
+                
+                {showStage === 'original' && results?.detections && !inpaintedImage && (
+                  <div className="canvas-overlay">
+                    {results.detections.map((det, index) => {
+                      const [x, y, w, h] = det.bbox;
+                      const left = (x / imgNaturalSize.width) * 100;
+                      const top = (y / imgNaturalSize.height) * 100;
+                      const width = (w / imgNaturalSize.width) * 100;
+                      const height = (h / imgNaturalSize.height) * 100;
+
+                      return (
+                        <div 
+                          key={index}
+                          className={`bounding-box ${selectedObjectIndex === index ? 'selected' : ''}`}
+                          style={{
+                            left: `${left}%`,
+                            top: `${top}%`,
+                            width: `${width}%`,
+                            height: `${height}%`,
+                          }}
+                          onClick={() => {
+                            setSelectedObjectIndex(index);
+                            setShowStage('mask');
+                          }}
+                        >
+                          <div className="bounding-box-label">
+                            {det.label} {Math.round(det.confidence * 100)}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'center' }}>

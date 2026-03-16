@@ -95,10 +95,10 @@ if __name__ == "__main__":
     img_path = create_dummy_image()
     
     try:
-        # test_detection(img_path)
-        # test_depth(img_path)
-        # test_caption(img_path)
-        # test_segmentation(img_path)
+        test_detection(img_path)
+        test_depth(img_path)
+        test_caption(img_path)
+        test_segmentation(img_path)
         test_inpainting(img_path) # We know this is very heavy, test last
     finally:
         if os.path.exists(img_path):
