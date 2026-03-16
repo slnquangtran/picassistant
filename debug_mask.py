@@ -1,38 +1,18 @@
-import os
-import gc
 import json
-import torch
 from app import pil_to_base64, load_image
 from PIL import Image
 
 def test(image_path="test_image.png"):
     print(f"Testing on image: {image_path}")
-    if not os.path.exists(image_path):
-        print("Image not found.")
-        return
-
     img = Image.open(image_path).convert("RGB")
     image_base64 = pil_to_base64(img)
     image_data_uri = f"data:image/png;base64,{image_base64}"
 
-    # 1. Captioning
-    print("Loading Captioning Agent...")
-    from captioning_agent import ImageCaptioningAgent
-    cap_agent = ImageCaptioningAgent()
-    caption_res = cap_agent.get_caption(image_data_uri)
-    print("Caption:", caption_res)
-    del cap_agent
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-
-    # 2. Object Detection
     print("Loading Object Detector...")
     from object_detector import detect_objects
     det_res = detect_objects(image_data_uri)
     detections = det_res.get("detections", [])
-    print("Detections found:", len(detections))
     
-    # 3. Segmentation
     print("Loading Segmentation Agent...")
     from segmentation_agent import SegmentationAgent
     seg_agent = SegmentationAgent()
@@ -50,13 +30,7 @@ def test(image_path="test_image.png"):
         
     seg_json = seg_agent.run(image_data_uri, formatted_bboxes)
     masks = json.loads(seg_json).get("masks", [])
-    print("Masks generated:", len(masks))
     
-    del seg_agent
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-
-    # Find Target Label (person/woman or dress)
     target_label = None
     target_mask = None
     for i, l in enumerate(labels):
@@ -71,37 +45,16 @@ def test(image_path="test_image.png"):
 
     if target_label:
         print(f"Inpainting target: {target_label}...")
-        
-        # Save mask image for debugging
         mask_img = load_image(target_mask)
         mask_img.save("target_mask.png")
         print("Saved target_mask.png")
-
-        print("Loading Inpainting Agent...")
-        from inpainting_specialist import InpaintingSpecialist
-        inpaint_agent = InpaintingSpecialist()
         
-        prompt = "a woman in a red dress in a forest"
-        mask_data_uri = f"data:image/png;base64,{target_mask}"
-        
-        res_json = inpaint_agent.run(image_data_uri, mask_data_uri, prompt)
-        res_data = json.loads(res_json)
-        out_base64 = res_data.get("inpainted_image", "")
-        
-        if out_base64:
-            out_img = load_image(out_base64)
-            out_img.save("output_red_dress.png")
-            print("Successfully saved output_red_dress.png")
-        else:
-            print("Inpainting failed.")
-            
-        del inpaint_agent
-        gc.collect()
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
+        # Check pixel values
+        import numpy as np
+        arr = np.array(mask_img.convert("L"))
+        print(f"Mask Min: {np.min(arr)}, Max: {np.max(arr)}, Mean: {np.mean(arr):.2f}")
     else:
         print("No target found for inpainting.")
 
 if __name__ == "__main__":
-    import sys
-    img_path = sys.argv[1] if len(sys.argv) > 1 else "test_image.png"
-    test(img_path)
+    test(r"C:\Users\Quang\.gemini\antigravity\brain\0c6d53b7-4868-477b-adbe-c23605ef61aa\woman_green_dress_1773624933060.png")
