@@ -57,42 +57,108 @@ def calculate_iou(box1, box2):
 
 def draw_bounding_boxes(image, detections):
     """
-    Draws bounding boxes and labels on a PIL image.
-    :param image: PIL Image object.
-    :param detections: List of detections in format [{"label": "cat", "bbox": [x, y, w, h]}, ...]
-    :return: Annotated PIL Image.
+    Draws bounding boxes and labels on a PIL image with a premium look.
     """
-    from PIL import ImageDraw, ImageFont
+    from PIL import ImageDraw, ImageFont, ImageColor
+    import random
     
-    annotated = image.copy()
+    annotated = image.copy().convert("RGBA")
     draw = ImageDraw.Draw(annotated)
     
-    # Try to load a font, fallback to default
+    # Predefined harmonious colors
+    COLORS = [
+        "#FF385C", "#FF9900", "#00F2FE", "#8E2DE2", "#45E3FF", 
+        "#FFD700", "#39FF14", "#FF00FF", "#00FFEF", "#710193"
+    ]
+    
     try:
-        font = ImageFont.truetype("arial.ttf", 20)
+        font = ImageFont.truetype("arial.ttf", 18)
     except IOError:
         font = ImageFont.load_default()
         
-    for det in detections:
+    for i, det in enumerate(detections):
         x, y, w, h = det["bbox"]
         label = det["label"]
-        confidence = det.get("confidence", "")
+        confidence = det.get("confidence", 0)
         
-        # Draw box
-        draw.rectangle([x, y, x + w, y + h], outline="red", width=3)
+        # Pick a color based on label or index
+        color_hex = COLORS[hash(label) % len(COLORS)]
+        rgb = ImageColor.getrgb(color_hex)
         
-        # Draw label
-        text = f"{label} {confidence}" if confidence != "" else label
+        # Draw soft glowing box (simulated by multiple outlines)
+        for offset in range(3):
+            alpha = 150 - (offset * 40)
+            draw.rectangle([x-offset, y-offset, x+w+offset, y+h+offset], outline=(*rgb, alpha), width=1)
         
-        # Use textbbox if available (higher PIL versions)
+        draw.rectangle([x, y, x + w, y + h], outline=(*rgb, 255), width=3)
+        
+        # Draw label with semi-transparent background
+        text = f"{label.upper()} {int(confidence*100)}%" if confidence > 0 else label.upper()
+        
         try:
-            bbox = draw.textbbox((x, y), text, font=font)
-            draw.rectangle(bbox, fill="red")
+            t_bbox = draw.textbbox((x, y), text, font=font)
+            # Add padding to text background
+            t_bg = [t_bbox[0]-4, t_bbox[1]-4, t_bbox[2]+4, t_bbox[3]+4]
+            draw.rectangle(t_bg, fill=(*rgb, 200))
         except AttributeError:
-            # Fallback for older PIL
             tw, th = draw.textsize(text, font=font)
-            draw.rectangle([x, y, x + tw, y + th], fill="red")
+            draw.rectangle([x, y, x + tw, y + th], fill=(*rgb, 200))
             
         draw.text((x, y), text, fill="white", font=font)
         
-    return annotated
+    return annotated.convert("RGB")
+
+def draw_mask_overlay(image, masks, labels=None, alpha=0.5):
+    """
+    Overlays multiple masks onto the image with different colors.
+    """
+    from PIL import ImageDraw, ImageColor
+    import numpy as np
+    
+    annotated = image.copy().convert("RGBA")
+    width, height = image.size
+    
+    COLORS = [
+        "#FF385C", "#FF9900", "#00F2FE", "#8E2DE2", "#45E3FF", 
+        "#FFD700", "#39FF14", "#FF00FF", "#00FFEF", "#710193"
+    ]
+    
+    for i, mask_b64 in enumerate(masks):
+        mask = load_image(mask_b64).convert("L")
+        mask_np = np.array(mask)
+        
+        color_hex = COLORS[i % len(COLORS)]
+        rgb = ImageColor.getrgb(color_hex)
+        
+        # Create a colored layer
+        overlay = Image.new("RGBA", (width, height), (*rgb, int(255 * alpha)))
+        
+        # Apply mask to the overlay
+        mask_img = Image.fromarray(mask_np)
+        annotated = Image.composite(overlay, annotated, mask_img)
+        
+    return annotated.convert("RGB")
+
+def auto_generate_queries(caption):
+    """
+    Generates a list of candidate queries for OWL-ViT based on a caption.
+    """
+    if not caption:
+        return "person, girl, anime character, dress, hair, face, trees, forest, sky"
+    
+    # Common labels to always include
+    base_labels = ["person", "girl", "anime character", "face", "hair"]
+    
+    # Process caption to find potential objects
+    # Remove common filler words
+    stop_words = ["a", "an", "the", "is", "are", "standing", "sitting", "lying", "in", "on", "at", "with", "around"]
+    words = caption.lower().split()
+    keywords = [w.strip(",.") for w in words if w.strip(",.") not in stop_words]
+    
+    # Combine and de-duplicate
+    all_queries = base_labels + keywords
+    # Keep order but remove dupes
+    seen = set()
+    unique_queries = [x for x in all_queries if not (x in seen or seen.add(x))]
+    
+    return ", ".join(unique_queries[:15]) # Limit to 15 for stability

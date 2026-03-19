@@ -44,3 +44,7 @@ Desktop.ini
 *.png
 !test_image.png
 !test_mask.png
+test_outputs/
+test_log.txt
+*.txt
+!requirements.txt

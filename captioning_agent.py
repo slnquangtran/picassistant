@@ -30,8 +30,14 @@ class ImageCaptioningAgent:
             image = self.load_image(image_input)
             inputs = self.processor(images=image, return_tensors="pt").to(self.device)
             
-            # Generate caption
-            out = self.model.generate(**inputs)
+            # Generate caption with more detail
+            out = self.model.generate(
+                **inputs, 
+                max_new_tokens=100,
+                min_new_tokens=20,
+                num_beams=5,
+                early_stopping=True
+            )
             caption = self.processor.decode(out[0], skip_special_tokens=True)
             
             return {"caption": caption}

@@ -46,6 +46,7 @@ h1 {
   font-weight: 800;
   background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -1px;
 }
@@ -253,6 +254,22 @@ input[type="text"] {
 
 input[type="text"]:focus {
   border-color: var(--accent);
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.control-group input[type="text"] {
+  width: 100%;
 }
 
 .loading-overlay {
